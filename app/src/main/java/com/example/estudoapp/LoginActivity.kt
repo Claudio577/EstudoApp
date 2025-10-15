@@ -26,7 +26,7 @@ class LoginActivity : AppCompatActivity() {
         val loginButton = findViewById<Button>(R.id.loginButton)
         val registerButton = findViewById<Button>(R.id.registerButton)
 
-        // LOGIN EXISTENTE
+        // 🔹 LOGIN EXISTENTE
         loginButton.setOnClickListener {
             val email = emailEditText.text.toString().trim()
             val password = passwordEditText.text.toString().trim()
@@ -34,9 +34,40 @@ class LoginActivity : AppCompatActivity() {
             if (email.isNotEmpty() && password.isNotEmpty()) {
                 auth.signInWithEmailAndPassword(email, password)
                     .addOnSuccessListener {
-                        Toast.makeText(this, "Login realizado com sucesso!", Toast.LENGTH_SHORT).show()
-                        startActivity(Intent(this, MainActivity::class.java))
-                        finish()
+                        val db = Firebase.firestore
+
+                        // 🔹 Busca o documento do Firestore pelo campo "email" (igual ao site)
+                        db.collection("usuarios")
+                            .whereEqualTo("email", email)
+                            .get()
+                            .addOnSuccessListener { documents ->
+                                if (!documents.isEmpty) {
+                                    val doc = documents.documents[0]
+                                    val resultado = doc.getString("resultado") ?: "Sem resultado"
+                                    val renda = doc.getLong("renda") ?: 0
+                                    val gastos = doc.getLong("gastos") ?: 0
+                                    val poupanca = doc.getLong("poupanca") ?: 0
+                                    val idade = doc.getLong("idade") ?: 0
+                                    val investimentos = doc.getLong("investimentos") ?: 0
+
+                                    // 🔹 Envia os dados para MainActivity
+                                    val intent = Intent(this, MainActivity::class.java)
+                                    intent.putExtra("email", email)
+                                    intent.putExtra("resultado", resultado)
+                                    intent.putExtra("renda", renda)
+                                    intent.putExtra("gastos", gastos)
+                                    intent.putExtra("poupanca", poupanca)
+                                    intent.putExtra("idade", idade)
+                                    intent.putExtra("investimentos", investimentos)
+                                    startActivity(intent)
+                                    finish()
+                                } else {
+                                    Toast.makeText(this, "⚠️ Nenhum dado encontrado no Firestore para este email.", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                            .addOnFailureListener {
+                                Toast.makeText(this, "Erro ao buscar dados: ${it.message}", Toast.LENGTH_LONG).show()
+                            }
                     }
                     .addOnFailureListener {
                         Toast.makeText(this, "Erro no login: ${it.message}", Toast.LENGTH_LONG).show()
@@ -46,23 +77,15 @@ class LoginActivity : AppCompatActivity() {
             }
         }
 
-        // CRIAR NOVO USUÁRIO
+        // 🔹 CRIAR NOVO USUÁRIO (só no Auth — sem alterar o Firestore do site)
         registerButton.setOnClickListener {
             val email = emailEditText.text.toString().trim()
             val password = passwordEditText.text.toString().trim()
 
             if (email.isNotEmpty() && password.isNotEmpty()) {
                 auth.createUserWithEmailAndPassword(email, password)
-                    .addOnSuccessListener { result ->
-                        val userId = result.user?.uid
-                        val db = Firebase.firestore
-                        val usuario = hashMapOf(
-                            "email" to email,
-                            "uid" to userId
-                        )
-                        db.collection("usuarios").document("usuarios").collection("usuarios").document(userId ?: "").set(usuario)
-
-                        Toast.makeText(this, "Usuário criado com sucesso!", Toast.LENGTH_SHORT).show()
+                    .addOnSuccessListener {
+                        Toast.makeText(this, "Usuário criado com sucesso! Agora faça login.", Toast.LENGTH_SHORT).show()
                     }
                     .addOnFailureListener {
                         Toast.makeText(this, "Erro ao criar usuário: ${it.message}", Toast.LENGTH_LONG).show()
